@@ -16,6 +16,8 @@ Acronym = {
     shortname = nil,
     -- The acronym's definition, or description.
     longname = nil,
+    -- The plural of the long form (optional).
+    longplural = nil,  -- <<<<<<<<<<<<<<<< ADDED FIELD
     -- The number of times this acronym was used.
     occurrences = 0,
     -- The order in which acronyms are defined. 1=first, 2=second, etc.
@@ -38,7 +40,7 @@ local function raiseAcronymCreationError(object)
     end
     local unexpected_keys = {}
     for k, _ in pairs(object.original_metadata) do
-        if k ~= "shortname" and k ~= "longname" and k ~= "key" then
+        if k ~= "shortname" and k ~= "longname" and k ~= "key" and k ~= "longplural" then -- <<<< allow longplural
             table.insert(unexpected_keys, k)
         end
     end
@@ -69,6 +71,13 @@ function Acronym:new(object)
     -- (Most of the time, the key is the shortname in lower case anyway...)
     object.key = object.key or object.shortname
 
+    -- Populate longplural if present in original_metadata
+    if object.longplural == nil and object.original_metadata then
+        if object.original_metadata.longplural ~= nil then
+            object.longplural = pandoc.utils.stringify(object.original_metadata.longplural)
+        end
+    end
+    
     return object
 end
 
@@ -79,6 +88,9 @@ function Acronym.__tostring(acronym)
     str = str .. "key=" .. acronym.key .. ";"
     str = str .. "short=" .. acronym.shortname .. ";"
     str = str .. "long=" .. acronym.longname .. ";"
+    if acronym.longplural then
+        str = str .. "longplural=" .. acronym.longplural .. ";"
+    end
     str = str .. "occurrences=" .. acronym.occurrences .. ";"
     str = str .. "definition_order=" .. tostring(acronym.definition_order) .. ";"
     str = str .. "usage_order=" .. tostring(acronym.usage_order)
@@ -199,10 +211,12 @@ function Acronyms:parseFromMetadata(metadata, on_duplicate)
         local key = v.key and pandoc.utils.stringify(v.key)
         local shortname = v.shortname and pandoc.utils.stringify(v.shortname)
         local longname = v.longname and pandoc.utils.stringify(v.longname)
+        local longplural = v.longplural and pandoc.utils.stringify(v.longplural) -- <<<<<<< handled here
         local acronym = Acronym:new{
             key = key,
             shortname = shortname,
             longname = longname,
+            longplural = longplural, -- <<<<<<< handled here
             original_metadata = v,
         }
         Acronyms:add(acronym, on_duplicate)
