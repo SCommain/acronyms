@@ -100,5 +100,11 @@ function Helpers.str_to_boolean(value)
     return result
 end
 
+--[[
+Replace the first character in the acronym string with a capital letter (used inside replaceAcronym when the command is \Acr{KEY} or \Acrpl{KEY}.
+--]]
+function Helpers.capitalize_first(s)
+    return (s:gsub("^%l", string.upper))
+end
 
 return Helpers

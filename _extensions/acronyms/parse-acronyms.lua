@@ -123,20 +123,47 @@ end
 Replace each `\acr{KEY}` with the correct text and link to the list of acronyms.
 --]]
 function replaceAcronym(el)
-    local acr_key = string.match(el.text, "\\acr{(.+)}")
-    if acr_key then
-        -- This is an acronym, we need to parse it.
-        if Acronyms:contains(acr_key) then
-            -- The acronym exists (and is recognized)
-            return AcronymsPandoc.replaceExistingAcronym(acr_key)
-        else
-            -- The acronym does not exists
-            return AcronymsPandoc.replaceNonExistingAcronym(acr_key)
-        end
+  -- Extended regex to capture command and key
+  local cmd, acr_key = string.match(el.text, "\\([aA]crpl?){([^}]+)}")
+  if not cmd then
+    return nil -- Not an acronym command
+  end
+
+  if not Acronyms:contains(acr_key) then
+    return AcronymsPandoc.replaceNonExistingAcronym(acr_key)
+  end
+
+  local acronym = Acronyms:get(acr_key)
+  local isFirst = acronym:isFirstUse()
+  local isPlural = string.match(cmd, "pl")
+  local isCapital = string.match(cmd, "^A")
+
+  local replacement
+  if isPlural then
+    if isFirst then
+      -- Use longplural, or fallback to longname + "s"
+      replacement = acronym.longplural or (acronym.longname and (acronym.longname .. "s")) or ""
+      if isCapital then
+        replacement = Helpers.capitalize_first(replacement)
+      end
     else
-        -- This is not an acronym, return nil to leave it unchanged.
-        return nil
+      -- Use shortplural, or fallback to shortname + "s"
+      replacement = acronym.shortplural or (acronym.shortname and (acronym.shortname .. "s")) or ""
     end
+  else
+    if isFirst then
+      replacement = acronym.longname or ""
+      if isCapital then
+        replacement = Helpers.capitalize_first(replacement)
+      end
+    else
+      replacement = acronym.shortname or ""
+    end
+  end
+
+  acronym:incrementOccurrences()
+  -- Optionally: wrap `replacement` as a Pandoc element and add links as before
+  return pandoc.Str(replacement)
 end
 
 

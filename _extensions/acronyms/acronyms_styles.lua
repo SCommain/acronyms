@@ -38,6 +38,24 @@ local Helpers = require("acronyms_helpers")
 -- The table containing all styles, indexed by the style's name.
 local styles = {}
 
+-- Local helper function to select the correct form of the acronym to be displayed.
+local function select_form(acronym, isPlural, isFirst, isCapital)
+    local text
+    if isPlural then
+        if isFirst then
+            text = acronym.longplural or (acronym.longname and acronym.longname .. "s") or ""
+        else
+            text = acronym.shortplural or (acronym.shortname and acronym.shortname .. "s") or ""
+        end
+    else
+        text = isFirst and acronym.longname or acronym.shortname
+    end
+    if isCapital and text then
+        text = Helpers.capitalize_first(text)
+    end
+    return text
+end
+
 
 -- Local helper function to create either a Str or a Link,
 -- depending on whether we want to insert links.
@@ -52,28 +70,30 @@ end
 
 -- First use: long name (short name)
 -- Next use: short name
-styles["long-short"] = function(acronym, insert_links, is_first_use)
+styles["long-short"] = function(acronym, insert_links, is_first_use, isPlural, isCapital)
     local text
     if is_first_use then
-        text = acronym.longname .. " (" .. acronym.shortname .. ")"
+        local main = select_form(acronym, isPlural, true, isCapital)
+        local alt = select_form(acronym, isPlural, false, isCapital)
+        text = main .. " (" .. alt .. ")"
     else
-        text = acronym.shortname
+        text = select_form(acronym, isPlural, false, isCapital)
     end
-
     return create_element(text, acronym.key, insert_links)
 end
 
 
 -- First use: short name (long name)
 -- Next use: short name
-styles["short-long"] = function(acronym, insert_links, is_first_use)
+styles["short-long"] = function(acronym, insert_links, is_first_use, isPlural, isCapital)
     local text
     if is_first_use then
-        text = acronym.shortname .. " (" .. acronym.longname .. ")"
+        local main = select_form(acronym, isPlural, true, isCapital)
+        local alt = select_form(acronym, isPlural, false, isCapital)
+        text = alt .. " (" .. main .. ")"
     else
-        text = acronym.shortname
+        text = select_form(acronym, isPlural, false, isCapital)
     end
-
     return create_element(text, acronym.key, insert_links)
 end
 
@@ -81,7 +101,7 @@ end
 -- Next use: long name
 styles["long-long"] = function(acronym, insert_links)
     local text
-    text = acronym.longname
+    text = select_form(acronym, isPlural, true, isCapital)
 
     return create_element(text, acronym.key, insert_links)
 end
@@ -89,32 +109,23 @@ end
 -- First use: short name [^1]
 -- [^1]: short name: long name
 -- Next use: short name
-styles["short-footnote"] = function(acronym, insert_links, is_first_use)
+styles["short-footnote"] = function(acronym, insert_links, is_first_use, isPlural, isCapital)
+    local main = select_form(acronym, isPlural, false, isCapital)
     if is_first_use then
         -- The inline text (before the footnote)
-        local text = pandoc.Str(acronym.shortname)
-        -- We create a footnote, which must contain a Block with a Link and
-        -- the longname (as a simple text).
-        -- So we create a Pandoc Plain object to hold the link and text.
-        -- Directly using a list inside the Note seems not to work.
-        local note = pandoc.Note(
-                pandoc.Plain({
-                    create_element(acronym.shortname, acronym.key, insert_links),
-                    pandoc.Str(": " .. acronym.longname)
-                })
-        )
-        -- We want to insert both the text and the footnote
-        return { text, note }
+        local footnote = select_form(acronym, isPlural, true, isCapital)
+        local text = pandoc.Span{pandoc.Str(main), pandoc.Note{pandoc.Str(footnote)}}
+        return create_element(text, acronym.key, insert_links)
     else
         -- Simply return the shortname
-        return create_element(acronym.shortname, acronym.key, insert_links)
+        return create_element(main, acronym.key, insert_links)
     end
 end
 
 
 -- The "public" API of this module, the function which is returned by
 -- require.
-return function(acronym, style_name, insert_links, is_first_use)
+return function(acronym, style_name, insert_links, is_first_use, isPlural, isCapital)
     -- Check that the requested strategy exists
     assert(style_name ~= nil,
         "[acronyms] The parameter style_name must not be nil!")
@@ -130,5 +141,5 @@ return function(acronym, style_name, insert_links, is_first_use)
         is_first_use = acronym:isFirstUse()
     end
     -- Call the style on this acronym
-    return styles[style_name](acronym, insert_links, is_first_use)
+    return styles[style_name](acronym, insert_links, is_first_use, isPlural, isCapital)
 end
