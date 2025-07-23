@@ -26,6 +26,8 @@ local AcronymsPandoc = require("acronyms_pandoc")
 -- The options for the List Of Acronyms, as defined in the document's metadata.
 local Options = require("acronyms_options")
 
+-- The acronyms styling functions
+local AcronymStyles = require("acronyms_styles")
 
 --[[
     Parse the document's metadata, including options, and acronyms' definitions.
@@ -123,49 +125,33 @@ end
 Replace each `\acr{KEY}` with the correct text and link to the list of acronyms.
 --]]
 function replaceAcronym(el)
-  -- Extended regex to capture command and key
-  local cmd, acr_key = string.match(el.text, "\\([aA]crpl?){([^}]+)}")
+  quarto.log.output("[acronyms] RawInline: " .. tostring(el.text))
+  local cmd, acr_key = string.match(el.text, "\\([aA]cr%w*)%s*{([^}]+)}")
   if not cmd then
-    return nil -- Not an acronym command
+    quarto.log.output("[acronyms] Regex failed for: " .. tostring(el.text))
+    return nil
   end
 
   if not Acronyms:contains(acr_key) then
+    quarto.log.output("[acronyms] Key not found: " .. acr_key)
     return AcronymsPandoc.replaceNonExistingAcronym(acr_key)
   end
 
   local acronym = Acronyms:get(acr_key)
+  quarto.log.output("[acronyms] Got acronym object: " .. tostring(acronym))
   local isFirst = acronym:isFirstUse()
   local isPlural = string.match(cmd, "pl")
   local isCapital = string.match(cmd, "^A")
 
-  local replacement
-  if isPlural then
-    if isFirst then
-      -- Use longplural, or fallback to longname + "s"
-      replacement = acronym.longplural or (acronym.longname and (acronym.longname .. "s")) or ""
-      if isCapital then
-        replacement = Helpers.capitalize_first(replacement)
-      end
-    else
-      -- Use shortplural, or fallback to shortname + "s"
-      replacement = acronym.shortplural or (acronym.shortname and (acronym.shortname .. "s")) or ""
-    end
-  else
-    if isFirst then
-      replacement = acronym.longname or ""
-      if isCapital then
-        replacement = Helpers.capitalize_first(replacement)
-      end
-    else
-      replacement = acronym.shortname or ""
-    end
-  end
+  local style_name = Options.style or "long-short"
+  local insert_links = Options.insert_links
 
-  acronym:incrementOccurrences()
-  -- Optionally: wrap `replacement` as a Pandoc element and add links as before
-  return pandoc.Str(replacement)
+  local replacement = AcronymStyles(acronym, style_name, insert_links, isFirst, isPlural, isCapital)
+
+
+  acronym:incrementOccurrences()  -- Increment only ONCE, after checking isFirstUse
+  return replacement
 end
-
 
 -- Force the execution of the Meta filter before the RawInline
 -- (we need to load the acronyms first!)

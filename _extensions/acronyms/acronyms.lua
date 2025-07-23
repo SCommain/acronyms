@@ -118,7 +118,7 @@ end
 
 -- Is this the acronym's first occurrence?
 function Acronym:isFirstUse()
-    return self.occurrences <= 1
+    return self.occurrences == 0
 end
 
 
