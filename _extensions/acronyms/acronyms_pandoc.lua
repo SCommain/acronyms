@@ -27,7 +27,7 @@ local Helpers = require("acronyms_helpers")
 local sortAcronyms = require("sort_acronyms")
 
 -- Replacement function (handling styles)
-local replaceExistingAcronymWithStyle = require("acronyms_styles")
+local AcronymStyles = require("acronyms_styles")
 
 -- The options for the List Of Acronyms, as defined in the document's metadata.
 local Options = require("acronyms_options")
@@ -100,22 +100,24 @@ end
 function AcronymsPandoc.replaceExistingAcronym(acr_key, style, first_use, insert_links, isPlural, isCapital)
     quarto.log.debug("[acronyms] Replacing acronym", acr_key)
     local acronym = Acronyms:get(acr_key)
-    acronym:incrementOccurrences()
-    if acronym:isFirstUse() then
-        -- This acronym never appeared! We first set its usage order.
+    local is_first_use = first_use
+    if is_first_use == nil then
+        is_first_use = acronym:isFirstUse()
+    end
+    if is_first_use then
         Acronyms:setAcronymUsageOrder(acronym)
     end
-
+    acronym:incrementOccurrences()
     -- Use default values from Options if not specified
     style = style or Options["style"]
     if insert_links == nil then insert_links = Options["insert_links"] end
 
     -- Replace the acronym with the desired style
-    return replaceExistingAcronymWithStyle(
+    return AcronymStyles(
         acronym,
         style,
         insert_links,
-        first_use,
+        is_first_use,  -- pass the correct flag
         isPlural,
         isCapital
     )

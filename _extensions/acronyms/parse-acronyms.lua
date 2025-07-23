@@ -137,20 +137,20 @@ function replaceAcronym(el)
     return AcronymsPandoc.replaceNonExistingAcronym(acr_key)
   end
 
-  local acronym = Acronyms:get(acr_key)
-  quarto.log.output("[acronyms] Got acronym object: " .. tostring(acronym))
-  local isFirst = acronym:isFirstUse()
+  -- detect options
   local isPlural = string.match(cmd, "pl")
   local isCapital = string.match(cmd, "^A")
 
-  local style_name = Options.style or "long-short"
-  local insert_links = Options.insert_links
-
-  local replacement = AcronymStyles(acronym, style_name, insert_links, isFirst, isPlural, isCapital)
-
-
-  acronym:incrementOccurrences()  -- Increment only ONCE, after checking isFirstUse
-  return replacement
+  -- This will handle incrementing occurrences, setting usage order, etc.
+  quarto.log.output("[acronyms] Key found: " .. acr_key)
+  return AcronymsPandoc.replaceExistingAcronym(
+    acr_key,
+    Options.style,
+    nil,    -- first_use (let the function compute it)
+    Options.insert_links,
+    isPlural,
+    isCapital
+  )
 end
 
 -- Force the execution of the Meta filter before the RawInline
